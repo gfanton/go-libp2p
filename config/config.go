@@ -24,7 +24,7 @@ import (
 
 	autonat "github.com/libp2p/go-libp2p-autonat"
 	blankhost "github.com/libp2p/go-libp2p-blankhost"
-	circuit "github.com/libp2p/go-libp2p-circuit"
+	circuit "github.com/libp2p/go-libp2p-circuit/v2/client"
 	discovery "github.com/libp2p/go-libp2p-discovery"
 	swarm "github.com/libp2p/go-libp2p-swarm"
 	tptu "github.com/libp2p/go-libp2p-transport-upgrader"
@@ -75,7 +75,6 @@ type Config struct {
 
 	RelayCustom bool
 	Relay       bool
-	RelayOpts   []circuit.RelayOpt
 
 	ListenAddrs     []ma.Multiaddr
 	AddrsFactory    bhost.AddrsFactory
@@ -169,7 +168,7 @@ func (cfg *Config) addTransports(ctx context.Context, h host.Host) (err error) {
 	}
 
 	if cfg.Relay {
-		err := circuit.AddRelayTransport(ctx, h, upgrader, cfg.RelayOpts...)
+		err := circuit.AddTransport(ctx, h, upgrader)
 		if err != nil {
 			h.Close()
 			return err
@@ -253,15 +252,7 @@ func (cfg *Config) NewNode(ctx context.Context) (host.Host, error) {
 			return nil, fmt.Errorf("cannot enable autorelay; relay is not enabled")
 		}
 
-		hop := false
-		for _, opt := range cfg.RelayOpts {
-			if opt == circuit.OptHop {
-				hop = true
-				break
-			}
-		}
-
-		if !hop && len(cfg.StaticRelays) > 0 {
+		if len(cfg.StaticRelays) > 0 {
 			_ = relay.NewAutoRelay(ctx, h, nil, router, cfg.StaticRelays)
 		} else {
 			if router == nil {

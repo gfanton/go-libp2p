@@ -43,3 +43,5 @@ require (
 	github.com/whyrusleeping/mdns v0.0.0-20190826153040-b9b60ed33aa9
 	go.opencensus.io v0.23.0 // indirect
 )
+
+replace github.com/libp2p/go-libp2p-circuit => github.com/libp2p/go-libp2p-circuit v0.4.1-0.20210309082447-90d67900a8fe // relay v2
