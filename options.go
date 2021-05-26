@@ -9,7 +9,6 @@ import (
 	"net"
 	"time"
 
-	circuit "github.com/libp2p/go-libp2p-circuit"
 	"github.com/libp2p/go-libp2p-core/connmgr"
 	"github.com/libp2p/go-libp2p-core/crypto"
 	"github.com/libp2p/go-libp2p-core/metrics"
@@ -18,6 +17,8 @@ import (
 	"github.com/libp2p/go-libp2p-core/peerstore"
 	"github.com/libp2p/go-libp2p-core/pnet"
 
+	circuit "github.com/libp2p/go-libp2p-circuit"
+	"github.com/libp2p/go-libp2p-circuit/v2/relay"
 	"github.com/libp2p/go-libp2p/config"
 	bhost "github.com/libp2p/go-libp2p/p2p/host/basic"
 	autorelay "github.com/libp2p/go-libp2p/p2p/host/relay"
@@ -218,6 +219,20 @@ func EnableRelay(options ...circuit.RelayOpt) Option {
 		cfg.RelayCustom = true
 		cfg.Relay = true
 		cfg.RelayOpts = options
+		return nil
+	}
+}
+
+// EnableRelay configures libp2p to enable the relay transport with
+// configuration options. By default, this option only configures libp2p to
+// accept inbound connections from relays and make outbound connections
+// _through_ relays when requested by the remote peer. (default: enabled)
+//
+// To _act_ as a relay, pass the circuit.OptHop option.
+func RelayV2Options(options ...relay.Option) Option {
+	return func(cfg *Config) error {
+		cfg.RelayV2Opts = options
+		cfg.Relay = true
 		return nil
 	}
 }

@@ -24,7 +24,10 @@ import (
 
 	autonat "github.com/libp2p/go-libp2p-autonat"
 	blankhost "github.com/libp2p/go-libp2p-blankhost"
-	circuit "github.com/libp2p/go-libp2p-circuit/v2/client"
+
+	circuit "github.com/libp2p/go-libp2p-circuit"
+	circuit_client "github.com/libp2p/go-libp2p-circuit/v2/client"
+	circuit_relay "github.com/libp2p/go-libp2p-circuit/v2/relay"
 	discovery "github.com/libp2p/go-libp2p-discovery"
 	swarm "github.com/libp2p/go-libp2p-swarm"
 	tptu "github.com/libp2p/go-libp2p-transport-upgrader"
@@ -75,6 +78,8 @@ type Config struct {
 
 	RelayCustom bool
 	Relay       bool
+	RelayOpts   []circuit.RelayOpt
+	RelayV2Opts []circuit_relay.Option
 
 	ListenAddrs     []ma.Multiaddr
 	AddrsFactory    bhost.AddrsFactory
@@ -168,11 +173,13 @@ func (cfg *Config) addTransports(ctx context.Context, h host.Host) (err error) {
 	}
 
 	if cfg.Relay {
-		err := circuit.AddTransport(ctx, h, upgrader)
+		err := circuit_client.AddTransport(ctx, h, upgrader)
 		if err != nil {
 			h.Close()
 			return err
 		}
+
+		log.Info("relay/v2 enable")
 	}
 
 	return nil
@@ -243,16 +250,38 @@ func (cfg *Config) NewNode(ctx context.Context) (host.Host, error) {
 		}
 	}
 
+	hop := false
+	for _, opt := range cfg.RelayOpts {
+		if opt == circuit.OptHop {
+			hop = true
+			break
+		}
+	}
+
+	if cfg.Relay && hop {
+		r, err := circuit_relay.New(h, cfg.RelayV2Opts...)
+		if err != nil {
+			return nil, fmt.Errorf("cannot enable relay hop: %s\n", err)
+		}
+
+		// @TODO(gfanton): move this elsewhere
+		go func() {
+			<-ctx.Done()
+			r.Close()
+		}()
+	}
+
 	// Note: h.AddrsFactory may be changed by AutoRelay, but non-relay version is
 	// used by AutoNAT below.
 	addrF := h.AddrsFactory
 	if cfg.EnableAutoRelay {
 		if !cfg.Relay {
 			h.Close()
+
 			return nil, fmt.Errorf("cannot enable autorelay; relay is not enabled")
 		}
 
-		if len(cfg.StaticRelays) > 0 {
+		if !hop && len(cfg.StaticRelays) > 0 {
 			_ = relay.NewAutoRelay(ctx, h, nil, router, cfg.StaticRelays)
 		} else {
 			if router == nil {
